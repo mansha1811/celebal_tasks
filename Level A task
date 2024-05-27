@@ -1,0 +1,154 @@
+1. SELECT * FROM Sales.Customer;
+2. SELECT c.CustomerID
+    FROM Sales.Customer c
+    JOIN Sales.SalesPerson sp ON c.TerritoryID = sp.TerritoryID
+    JOIN Sales.Store s ON sp.BusinessEntityID = s.BusinessEntityID
+    WHERE s.Name LIKE '%N';
+3. SELECT * FROM Person.CountryRegion
+  WHERE Name IN ('Berlin', 'London');
+4. SELECT * FROM Person.CountryRegion
+  WHERE Name IN ('UK', 'USA');
+5.  SELECT * FROM Production.Product
+  ORDER BY ProductName;
+6. SELECT * FROM Production.Product
+ WHERE ProductName LIKE 'A%';
+7.SELECT DISTINCT c.* FROM Sales.Customer c
+ JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID;
+8. SELECT DISTINCT c.* FROM Sales.Customer c
+  JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  JOIN Production.Product p ON sod.ProductID = p.ProductID
+  WHERE c.City = 'London' AND p.ProductName = 'Chai';
+9. SELECT * FROM Sales.Customer c
+WHERE NOT EXISTS (SELECT 1 FROM Sales.SalesOrderHeader soh WHERE c.CustomerID = soh.CustomerID);
+10. SELECT DISTINCT c.* FROM Sales.Customer c
+  JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  JOIN Production.Product p ON sod.ProductID = p.ProductID
+  WHERE p.ProductName = 'Tofu';
+11. SELECT TOP 1 * FROM Sales.SalesOrderHeader
+  ORDER BY OrderDate;
+12. SELECT TOP 1 soh.* FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  ORDER BY sod.UnitPrice * sod.OrderQty DESC;
+13. SELECT SalesOrderID, AVG(OrderQty) AS AvgQuantity
+  FROM Sales.SalesOrderDetail
+  GROUP BY SalesOrderID;
+14. SELECT SalesOrderID, MIN(OrderQty) AS MinQuantity, MAX(OrderQty) AS MaxQuantity
+  FROM Sales.SalesOrderDetail
+  GROUP BY SalesOrderID;
+15. SELECT e.ManagerID, COUNT(*) AS TotalEmployees
+  FROM HumanResources.Employee e
+  GROUP BY e.ManagerID
+  HAVING e.ManagerID IS NOT NULL;
+16. SELECT SalesOrderID, SUM(OrderQty) AS TotalQuantity
+  FROM Sales.SalesOrderDetail
+  GROUP BY SalesOrderID
+  HAVING SUM(OrderQty) > 300;
+17. SELECT * FROM Sales.SalesOrderHeader
+  WHERE OrderDate >= '1996-12-31';
+18. SELECT * FROM Sales.SalesOrderHeader
+ WHERE ShipCountry = 'Canada';
+19. SELECT soh.* FROM Sales.SalesOrderHeader soh
+  JOIN (SELECT SalesOrderID, SUM(UnitPrice * OrderQty) AS OrderTotal
+        FROM Sales.SalesOrderDetail
+        GROUP BY SalesOrderID) sub
+  ON soh.SalesOrderID = sub.SalesOrderID
+  WHERE sub.OrderTotal > 200;
+20. SELECT ShipCountry, SUM(UnitPrice * OrderQty) AS TotalSales
+  FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  GROUP BY ShipCountry;
+21. SELECT c.ContactName, COUNT(soh.SalesOrderID) AS NumberOfOrders
+  FROM Sales.Customer c
+  JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+  GROUP BY c.ContactName;
+22. SELECT c.ContactName FROM Sales.Customer c
+  JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+  GROUP BY c.ContactName
+  HAVING COUNT(soh.SalesOrderID) > 3;
+23. SELECT DISTINCT p.ProductName FROM Production.Product p
+  JOIN Sales.SalesOrderDetail sod ON p.ProductID = sod.ProductID
+  JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
+  WHERE p.Discontinued = 1 AND soh.OrderDate BETWEEN '1997-01-01' AND '1998-01-01';
+24. SELECT e.FirstName, e.LastName, m.FirstName AS SupervisorFirstName, m.LastName AS SupervisorLastName
+  FROM HumanResources.Employee e
+  LEFT JOIN HumanResources.Employee m ON e.ManagerID = m.EmployeeID;
+25. SELECT e.EmployeeID, SUM(sod.UnitPrice * sod.OrderQty) AS TotalSales
+  FROM HumanResources.Employee e
+  JOIN Sales.SalesOrderHeader soh ON e.EmployeeID = soh.SalesPersonID
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  GROUP BY e.EmployeeID;
+26. SELECT * FROM HumanResources.Employee
+  WHERE FirstName LIKE '%a%';
+27. SELECT ManagerID FROM HumanResources.Employee
+  GROUP BY ManagerID
+  HAVING COUNT(*) > 4 AND ManagerID IS NOT NULL;
+28. SELECT soh.SalesOrderID, p.ProductName FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  JOIN Production.Product p ON sod.ProductID = p.ProductID;
+29. WITH BestCustomer AS (
+    SELECT TOP 1 c.CustomerID
+    FROM Sales.Customer c
+    JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+    JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+    GROUP BY c.CustomerID
+    ORDER BY SUM(sod.UnitPrice * sod.OrderQty) DESC
+  )
+  SELECT soh.* FROM Sales.SalesOrderHeader soh
+  JOIN BestCustomer bc ON soh.CustomerID = bc.CustomerID;
+30. SELECT soh.* FROM Sales.SalesOrderHeader soh
+  JOIN Sales.Customer c ON soh.CustomerID = c.CustomerID
+  WHERE c.Fax IS NULL;
+31. SELECT DISTINCT soh.ShipPostalCode FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  JOIN Production.Product p ON sod.ProductID = p.ProductID
+  WHERE p.ProductName = 'Tofu';
+32. SELECT DISTINCT p.ProductName FROM Production.Product p
+  JOIN Sales.SalesOrderDetail sod ON p.ProductID = sod.ProductID
+  JOIN Sales.SalesOrderHeader soh
+33. SELECT p.ProductName, pc.Name AS CategoryName
+  FROM Production.Product p
+  JOIN Production.ProductCategory pc ON p.ProductCategoryID = pc.ProductCategoryID
+  JOIN Purchasing.ProductVendor pv ON p.ProductID = pv.ProductID
+  JOIN Purchasing.Vendor v ON pv.BusinessEntityID = v.BusinessEntityID
+  WHERE v.Name = 'Specialty Biscuits, Ltd';
+34. SELECT p.ProductID, p.Name
+  FROM Production.Product p
+  LEFT JOIN Sales.SalesOrderDetail sod ON p.ProductID = sod.ProductID
+  WHERE sod.ProductID IS NULL;
+35. SELECT p.ProductID, p.Name
+  FROM Production.Product p
+  WHERE p.UnitsInStock < 10 AND p.UnitsOnOrder = 0;
+36. SELECT TOP 10 soh.ShipCountry, SUM(sod.LineTotal) AS TotalSales
+  FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  GROUP BY soh.ShipCountry
+  ORDER BY TotalSales DESC;
+37. SELECT e.EmployeeID, COUNT(soh.SalesOrderID) AS NumberOfOrders
+  FROM HumanResources.Employee e
+  JOIN Sales.SalesOrderHeader soh ON e.BusinessEntityID = soh.SalesPersonID
+  JOIN Sales.Customer c ON soh.CustomerID = c.CustomerID
+  WHERE c.CustomerID BETWEEN 'A' AND 'AO'
+  GROUP BY e.EmployeeID;
+38. SELECT TOP 1 soh.OrderDate
+  FROM Sales.SalesOrderHeader soh
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  GROUP BY soh.OrderDate
+  ORDER BY SUM(sod.LineTotal) DESC;
+39. SELECT p.Name, SUM(sod.LineTotal) AS TotalRevenue
+  FROM Production.Product p
+  JOIN Sales.SalesOrderDetail sod ON p.ProductID = sod.ProductID
+  GROUP BY p.Name
+  ORDER BY TotalRevenue DESC;
+40. SELECT pv.BusinessEntityID AS SupplierID, COUNT(pv.ProductID) AS NumberOfProducts
+  FROM Purchasing.ProductVendor pv
+  GROUP BY pv.BusinessEntityID;
+41. SELECT TOP 10 c.CustomerID, SUM(sod.LineTotal) AS TotalSales
+  FROM Sales.Customer c
+  JOIN Sales.SalesOrderHeader soh ON c.CustomerID = soh.CustomerID
+  JOIN Sales.SalesOrderDetail sod ON soh.SalesOrderID = sod.SalesOrderID
+  GROUP BY c.CustomerID
+  ORDER BY TotalSales DESC;
+42. SELECT SUM(sod.LineTotal) AS TotalRevenue
+  FROM Sales.SalesOrderDetail sod;
