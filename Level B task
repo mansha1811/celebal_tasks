@@ -1,0 +1,260 @@
+1 Procedure InsertOrderDetails
+
+CREATE PROCEDURE InsertOrderDetails
+    @OrderID INT,
+    @ProductID INT,
+    @UnitPrice DECIMAL(19, 4) = NULL,
+    @Quantity INT,
+    @Discount DECIMAL(4, 2) = 0
+AS
+BEGIN
+    DECLARE @ProductUnitPrice DECIMAL(19, 4)
+    DECLARE @ReorderLevel INT
+    DECLARE @UnitsInStock INT
+
+    -- Fetch the product's unit price if not provided
+    IF @UnitPrice IS NULL
+    BEGIN
+        SELECT @ProductUnitPrice = UnitPrice, @ReorderLevel = ReorderLevel, @UnitsInStock = UnitsInStock
+        FROM Products
+        WHERE ProductID = @ProductID
+    END
+    ELSE
+    BEGIN
+        SELECT @ProductUnitPrice = @UnitPrice, @ReorderLevel = ReorderLevel, @UnitsInStock = UnitsInStock
+        FROM Products
+        WHERE ProductID = @ProductID
+    END
+
+    -- Check if there is enough stock
+    IF @Quantity > @UnitsInStock
+    BEGIN
+        PRINT 'Not enough stock to fulfill the order.'
+        RETURN
+    END
+
+    -- Insert the order details
+    INSERT INTO OrderDetails (OrderID, ProductID, UnitPrice, Quantity, Discount)
+    VALUES (@OrderID, @ProductID, @ProductUnitPrice, @Quantity, @Discount)
+
+    -- Check if the insertion was successful
+    IF @@ROWCOUNT = 0
+    BEGIN
+        PRINT 'Failed to place the order. Please try again.'
+        RETURN
+    END
+
+    -- Update the stock
+    UPDATE Products
+    SET UnitsInStock = UnitsInStock - @Quantity
+    WHERE ProductID = @ProductID
+
+    -- Check and print a message if stock drops below reorder level
+    IF (SELECT UnitsInStock FROM Products WHERE ProductID = @ProductID) < @ReorderLevel
+    BEGIN
+        PRINT 'Warning: The quantity in stock has dropped below the reorder level.'
+    END
+END
+
+2 Procedure UpdateOrderDetails
+
+CREATE PROCEDURE UpdateOrderDetails
+    @OrderID INT,
+    @ProductID INT,
+    @UnitPrice DECIMAL(19, 4) = NULL,
+    @Quantity INT = NULL,
+    @Discount DECIMAL(4, 2) = NULL
+AS
+BEGIN
+    DECLARE @CurrentUnitPrice DECIMAL(19, 4)
+    DECLARE @CurrentQuantity INT
+    DECLARE @CurrentDiscount DECIMAL(4, 2)
+    DECLARE @PreviousQuantity INT
+    DECLARE @Difference INT
+
+    -- Fetch current values
+    SELECT @CurrentUnitPrice = UnitPrice, @CurrentQuantity = Quantity, @CurrentDiscount = Discount
+    FROM OrderDetails
+    WHERE OrderID = @OrderID AND ProductID = @ProductID
+
+    -- Retain original values if parameters are NULL
+    SET @UnitPrice = ISNULL(@UnitPrice, @CurrentUnitPrice)
+    SET @Quantity = ISNULL(@Quantity, @CurrentQuantity)
+    SET @Discount = ISNULL(@Discount, @CurrentDiscount)
+
+    -- Get previous quantity to update stock
+    SELECT @PreviousQuantity = Quantity
+    FROM OrderDetails
+    WHERE OrderID = @OrderID AND ProductID = @ProductID
+
+    -- Update the order details
+    UPDATE OrderDetails
+    SET UnitPrice = @UnitPrice, Quantity = @Quantity, Discount = @Discount
+    WHERE OrderID = @OrderID AND ProductID = @ProductID
+
+    -- Adjust the stock
+    SET @Difference = @PreviousQuantity - @Quantity
+    UPDATE Products
+    SET UnitsInStock = UnitsInStock + @Difference
+    WHERE ProductID = @ProductID
+END
+
+3 Procedure GetOrderDetails
+
+CREATE PROCEDURE GetOrderDetails
+    @OrderID INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM OrderDetails WHERE OrderID = @OrderID)
+    BEGIN
+        PRINT 'The OrderID ' + CAST(@OrderID AS VARCHAR) + ' does not exist.'
+        RETURN 1
+    END
+    ELSE
+    BEGIN
+        SELECT * FROM OrderDetails WHERE OrderID = @OrderID
+    END
+END
+
+4  Procedure DeleteOrderDetails
+
+CREATE PROCEDURE DeleteOrderDetails
+    @OrderID INT,
+    @ProductID INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM OrderDetails WHERE OrderID = @OrderID AND ProductID = @ProductID)
+    BEGIN
+        PRINT 'Invalid parameters. The specified OrderID and ProductID combination does not exist.'
+        RETURN -1
+    END
+
+    DELETE FROM OrderDetails
+    WHERE OrderID = @OrderID AND ProductID = @ProductID
+END
+
+5 Functions for Date Formatting
+
+a. Function for MM/DD/YYYY format
+CREATE FUNCTION FormatDateMMDDYYYY (@InputDate DATETIME)
+RETURNS VARCHAR(10)
+AS
+BEGIN
+    RETURN CONVERT(VARCHAR(10), @InputDate, 101)
+END
+
+b. Function for YYYYMMDD format
+CREATE FUNCTION FormatDateYYYYMMDD (@InputDate DATETIME)
+RETURNS VARCHAR(8)
+AS
+BEGIN
+    RETURN CONVERT(VARCHAR(8), @InputDate, 112)
+END
+
+6. Views
+
+a. View vwCustomerOrders
+CREATE VIEW vwCustomerOrders AS
+SELECT 
+    C.CompanyName,
+    O.OrderID,
+    O.OrderDate,
+    OD.ProductID,
+    P.ProductName,
+    OD.Quantity,
+    OD.UnitPrice,
+    (OD.Quantity * OD.UnitPrice) AS TotalPrice
+FROM 
+    Orders O
+JOIN 
+    Customers C ON O.CustomerID = C.CustomerID
+JOIN 
+    OrderDetails OD ON O.OrderID = OD.OrderID
+JOIN 
+    Products P ON OD.ProductID = P.ProductID
+
+b. View for orders placed yesterday
+CREATE VIEW vwYesterdayCustomerOrders AS
+SELECT 
+    C.CompanyName,
+    O.OrderID,
+    O.OrderDate,
+    OD.ProductID,
+    P.ProductName,
+    OD.Quantity,
+    OD.UnitPrice,
+    (OD.Quantity * OD.UnitPrice) AS TotalPrice
+FROM 
+    Orders O
+JOIN 
+    Customers C ON O.CustomerID = C.CustomerID
+JOIN 
+    OrderDetails OD ON O.OrderID = OD.OrderID
+JOIN 
+    Products P ON OD.ProductID = P.ProductID
+WHERE 
+    O.OrderDate = CAST(GETDATE() - 1 AS DATE)
+
+c. View MyProducts
+CREATE VIEW MyProducts AS
+SELECT 
+    P.ProductID,
+    P.ProductName,
+    P.QuantityPerUnit,
+    P.UnitPrice,
+    S.CompanyName,
+    C.CategoryName
+FROM 
+    Products P
+JOIN 
+    Suppliers S ON P.SupplierID = S.SupplierID
+JOIN 
+    Categories C ON P.CategoryID = C.CategoryID
+WHERE 
+    P.Discontinued = 0
+
+7. Triggers
+
+a. Trigger for deleting order and order details
+CREATE TRIGGER trgInsteadOfDeleteOrder ON Orders
+INSTEAD OF DELETE
+AS
+BEGIN
+    DECLARE @OrderID INT
+    SELECT @OrderID = DELETED.OrderID FROM DELETED
+
+    -- Delete from OrderDetails
+    DELETE FROM OrderDetails WHERE OrderID = @OrderID
+
+    -- Delete from Orders
+    DELETE FROM Orders WHERE OrderID = @OrderID
+END
+
+b. Trigger for ensuring sufficient stock
+CREATE TRIGGER trgCheckStock ON OrderDetails
+AFTER INSERT
+AS
+BEGIN
+    DECLARE @ProductID INT
+    DECLARE @Quantity INT
+    DECLARE @UnitsInStock INT
+
+    SELECT @ProductID = i.ProductID, @Quantity = i.Quantity
+    FROM INSERTED i
+
+    SELECT @UnitsInStock = UnitsInStock
+    FROM Products
+    WHERE ProductID = @ProductID
+
+    IF @Quantity > @UnitsInStock
+    BEGIN
+        PRINT 'Insufficient stock. Order could not be placed.'
+        ROLLBACK TRANSACTION
+        RETURN
+    END
+
+    -- Adjust the stock
+    UPDATE Products
+    SET UnitsInStock = UnitsInStock - @Quantity
+    WHERE ProductID = @ProductID
+END
